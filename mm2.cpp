@@ -1,22 +1,118 @@
 #include<iostream>
 #include<fstream>
 #include<string>
+#include<limits.h>
 using namespace std;
-int height,width,Battery,R_X,R_Y;char **Matrix;
+int height,width,Battery,R_X,R_Y;char **Matrix;int **wayTo;
+
+//********************************************************************
+class Pair{
+    public:
+        Pair():first(0),second(0){};
+        Pair(int f, int s):first(f),second(s){};
+        int first;
+        int second;
+};
+
+class QueueList;
+class QueueNode{
+    friend class QueueList;
+    Pair data;
+    QueueNode *next;
+    QueueNode():data(0,0),next(0){};
+    QueueNode(Pair data_in):data(data_in),next(0){};
+};
+
+class QueueList{
+private:
+    QueueNode *front;
+    QueueNode *back;
+    int size;
+public:
+    QueueList():front(0),back(0),size(0){};
+    void Push(Pair);
+    void Pop();
+    bool IsEmpty();
+    Pair getFront();
+    Pair getBack();
+    int getSize();
+};
+
+void QueueList::Push(Pair x){
+    if (IsEmpty()) {
+        front = new QueueNode(x);
+        back = front;
+        size++;
+        return;
+    }
+
+    QueueNode *newNode = new QueueNode(x);
+    back->next = newNode;
+    back = newNode;         // update back pointer
+    size++;
+}
+
+void QueueList::Pop(){
+
+    if (IsEmpty()) {
+        std::cout << "Queue is empty.\n";
+        return;
+    }
+
+    QueueNode *deletenode = front;
+    front = front->next;    // update front pointer
+    delete deletenode;
+    deletenode = 0;
+    size--;
+}
+
+Pair QueueList::getFront(){
+
+    if (IsEmpty()) {
+        std::cout << "Queue is empty.\n";
+    } else {
+        return front->data;
+    }
+
+}
+
+Pair QueueList::getBack(){
+
+    if (IsEmpty()) {
+        std::cout << "Queue is empty.\n";
+    }
+    else {
+        return back->data;
+    }
+}
+
+bool QueueList::IsEmpty(){
+
+//    return (size == 0);
+    return ((front && back) == 0);
+}
+
+int QueueList::getSize(){
+
+    return size;
+}
+//********************************************************************
 
 class Robot;
 class floor{
     friend Robot;
     private:
-        char**posfloor;
+        //char**posfloor;
         char **curFloor;
-        int R_X,R_Y;
+        int RX,RY;
+        bool **visited;
+
     public:
         bool returnState(int x,int y);
-        void setCleaned(int x,int y);
-        bool checkAllCleaned();
-        int getDistanceR(int R_X,int R_Y);
-        void setFloor();
+        void setStep(); //v
+        bool checkAllCleaned(); //v
+        int getDistanceR(int RX,int RY);
+        void setFloor(); //v
 };
 void floor::setFloor(){
     curFloor=new char* [height];
@@ -26,14 +122,70 @@ void floor::setFloor(){
             curFloor[i][j]=Matrix[i][j];
         }
     }
+}
+//**********************************************************
+void floor::setStep(){
+    wayTo=new int* [height];
+    for(int i=0;i<height;i++){
+        wayTo[i]=new int[width];
+        for(int j=0;j<width;j++){
+            if(curFloor[i][j]=='1')
+                wayTo[i][j]=-1;
+            else if(curFloor[i][j]=='0')
+                wayTo[i][j]=INT_MAX;
+            else if(curFloor[i][j]=='R')
+                wayTo[i][j]=0;
+        }
+    }
+    visited=new bool*[height];
+    for(int i=0;i<height;i++){
+        visited[i]=new bool[width];
+        for(int j=0;j<width;j++){
+            visited[i][j]=false;
+        }
+    }
+
+    QueueList q;
+    visited[R_X][R_Y] = true;
+    q.Push(Pair(R_X, R_Y));
+    while(!q.IsEmpty()) {
+        Pair a = q.getFront();
+        q.Pop();
+
+        if(a.first - 1 >= 0 && wayTo[a.first - 1][a.second]!= -1 && visited[a.first - 1][a.second] == false) {
+            q.Push(Pair(a.first - 1, a.second));
+            wayTo[a.first - 1][a.second] = wayTo[a.first][a.second] + 1;
+            visited[a.first - 1][a.second] = true;
+        }
+
+        if(a.first + 1 < height && wayTo[a.first + 1][a.second]!= -1 && visited[a.first + 1][a.second] == false) {
+            q.Push(Pair(a.first + 1, a.second));
+            wayTo[a.first + 1][a.second] = wayTo[a.first][a.second] + 1;
+            visited[a.first + 1][a.second] = true;
+        }
+
+        if(a.second - 1 >= 0  && wayTo[a.first ][a.second- 1]!= -1 && visited[a.first][a.second - 1] == false) {
+            q.Push(Pair(a.first, a.second -1));
+            wayTo[a.first][a.second -1] = wayTo[a.first][a.second] + 1;
+            visited[a.first][a.second -1] = true;
+        }
+
+        if(a.second + 1 < width && wayTo[a.first ][a.second+ 1]!= -1 && visited[a.first][a.second + 1] == false) {
+            q.Push(Pair(a.first, a.second + 1));
+            wayTo[a.first][a.second + 1] = wayTo[a.first][a.second] + 1;
+            visited[a.first][a.second + 1] = true;
+        }
+    }
     //print out to check
     for(int i=0;i<height;i++){
         for(int j=0;j<width;j++){
-            cout<<curFloor[i][j];
+            cout<<wayTo[i][j]<<"  ";
         }
         cout<<endl;
     }
 }
+//***************************************************************************************
+
 bool floor::checkAllCleaned(){
     floor after;
     after.setFloor();
@@ -41,7 +193,6 @@ bool floor::checkAllCleaned(){
         for(int j=0;j<width;j++)
             if(after.curFloor[i][j]!=2) return false;
     return true;
-
 }
 
 
@@ -50,14 +201,14 @@ class Robot{
 	private:
 		int Battery;
 		int lifeTime;
-		int R_X,R_Y;
+		int r_X,r_Y;
 		int curX,curY;
 		floor r;
 	public:
         void printRobot();
 	    void initState(int batt,int rx,int ry){
-	        this->Battery=batt;this->R_X=rx;this->R_Y=ry;
-            curX=R_X;curY=R_Y;lifeTime=Battery;
+	        this->Battery=batt;this->r_X=rx;this->r_Y=ry;
+            curX=r_X;curY=r_Y;lifeTime=Battery;
 	    }
 	    int getCurX(){
 	        return this->curX;
@@ -84,25 +235,25 @@ void Robot::printRobot(){ //print information
     cout<<"battery: "<<Battery<<endl<<"lifetime: "<<lifeTime<<endl<<"(rx,ry): ("<<R_X<<","<<R_Y<<")"<<endl<<"(curX,curY): ("<<curX<<","<<curY<<")"<<endl;
 }
 void Robot::moveDown(){
-    if((curX+1<height)||((curX+1==R_X)&&(curY==R_Y))){
+    if((curX+1<height)||((curX+1==r_X)&&(curY==r_Y))){
         curX++;
         lifeTime--;
     }
 }
 void Robot::moveUp(){
-    if((curX-1>0)||((curX-1==R_X)&&(curY==R_Y))){
+    if((curX-1>0)||((curX-1==r_X)&&(curY==r_Y))){
         curX--;
         lifeTime--;
     }
 }
 void Robot::moveRight(){
-    if((curY+1<width)||((curX==R_X)&&(curY+1==R_Y))){
+    if((curY+1<width)||((curX==r_X)&&(curY+1==r_Y))){
         curY++;
         lifeTime--;
     }
 }
 void Robot::moveLeft(){
-    if((curY-1>0)||((curX==R_X)&&(curY-1==R_Y))){
+    if((curY-1>0)||((curX==r_X)&&(curY-1==r_Y))){
         curY--;
         lifeTime--;
     }
@@ -153,9 +304,22 @@ int readData(){  //set height width battery rx ry Matrix
     R_X=rx;R_Y=ry;
 
 }
-void toClean(){
+int writeData(){
+    ofstream outf("final.path",ios::out);
+    if(!outf)
+    { cout<<"can't open final.path"<<endl; return 1; }
+    for(int i=0;i<height;i++)
+    {
+        for(int j=0;j<width;j++)  //雙層for迴圈print出陣列，加上空格空行排版
+        {
+            outf<<Matrix[i][j];
+        }
+        outf<<endl;
+    }
+    outf.close();
 
 }
+
 //*****************************************************************************
 int main()
 {
@@ -168,4 +332,5 @@ int main()
 
     r.printRobot();
     f.setFloor();
+    f.setStep();
 }

@@ -4,6 +4,7 @@
 //#include "floor.h"
 using namespace std;
 //int height,width,Battery;char **Matrix;
+
 class Robot;
 class floor{
     friend Robot;
@@ -15,7 +16,6 @@ class floor{
         char **Matrix;
         char **floorState;
         int R_X,R_Y;
-        Robot r1;
     public:
 
         int readData();
