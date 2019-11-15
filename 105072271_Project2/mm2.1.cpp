@@ -3,7 +3,7 @@
 #include<string>
 #include<limits.h>
 using namespace std;
-int height,width,Battery,R_X,R_Y;char **Matrix;int **wayTo;bool **visit;
+int height,width,Battery,R_X,R_Y;char **Matrix;int **wayTo;bool **visit;int uncleanFloor=0;int oo=0;
 
 //*****************************START OF QUEUE*********************************
 //*****************************START OF QUEUE*********************************
@@ -19,9 +19,9 @@ class QueueList;
 class QueueNode{
     friend class QueueList;
     Pair data;
-    QueueNode():data(0,0),next(0){};
-    QueueNode(Pair data_in):data(data_in),next(0){};
-    QueueNode *next;
+    QueueNode():data(0,0),next(0),pre(0){};
+    QueueNode(Pair data_in):data(data_in),next(0),pre(0){};
+    QueueNode *next ,*pre;
 
 };
 
@@ -35,6 +35,7 @@ public:
     QueueList():front(0),back(0),size(0){};
     void Push(Pair);
     void Pop();
+    void PopB();
     bool IsEmpty();
     Pair getFront();
     Pair getBack();
@@ -51,9 +52,11 @@ void QueueList::Push(Pair x){
 
     QueueNode *newNode = new QueueNode(x);
     back->next = newNode;
-    back = newNode;         // update back pointer
+    back ->next->pre=back;
+    back=back->next;        // update back pointer
     size++;
 }
+
 
 void QueueList::Pop(){
 
@@ -68,6 +71,22 @@ void QueueList::Pop(){
     deletenode = 0;
     size--;
 }
+void QueueList::PopB(){
+
+    if(front!=back)
+    {
+        back=back->pre;
+        delete back->next;
+    }
+    else{
+        delete front;
+        front=back=NULL;
+    }
+
+    size--;
+}
+
+
 
 Pair QueueList::getFront(){
 
@@ -116,14 +135,9 @@ class floor{
     public:
         bool returnState(int x,int y);
         void setStep(); //v
-        bool checkAllCleaned(); //v
-
         void setFloor(); //v
 };
-/*void floor::getDistanceR(){
 
-
-}*/
 //**********************************************************
 void floor::setFloor(){
     curFloor=new char* [height];
@@ -143,7 +157,11 @@ void floor::setStep(){
             if(curFloor[i][j]=='1')
                 wayTo[i][j]=-1;
             else if(curFloor[i][j]=='0')
-                wayTo[i][j]=INT_MAX;
+               {
+                   wayTo[i][j]=INT_MAX;
+                   uncleanFloor++;
+
+               }
             else if(curFloor[i][j]=='R')
                 wayTo[i][j]=0;
         }
@@ -197,14 +215,7 @@ void floor::setStep(){
 }
 //*****************************************************
 
-bool floor::checkAllCleaned(){
-    floor after;
-    after.setFloor();
-    for(int i=0;i<height;i++)
-        for(int j=0;j<width;j++)
-            if(after.curFloor[i][j]!=2) return false;
-    return true;
-}
+
 //********************************END OF FLOOR********************************************************
 //********************************END OF FLOOR********************************************************
 
@@ -219,8 +230,9 @@ class Robot{
 		int curX,curY;
 		//bool **visit;
 	public:
-	    QueueList qq,line,backR;
+	    QueueList qq,line,backR,toDel;
 	    void getDistanceR();
+	    bool checkAllCleaned();
 	    void goCharged();
 	    void printRobot();
 	    int getCurX() {return this->curX;}
@@ -237,8 +249,10 @@ class Robot{
             curX=r_X;curY=r_Y;lifeTime=battery;
 	    }
 };
+
 void Robot::getDistanceR(){
-    int maxi=wayTo[0][0];  //to check whether the maxi step > 1/2 Battery
+    oo++;
+    int maxi=wayTo[0][0];  //to check where is the maxi step
     Pair record;           //to record the position of maxi
     for(int i=0;i<height;i++){
         for(int j=0;j<width;j++){
@@ -252,12 +266,17 @@ void Robot::getDistanceR(){
     cout<<maxi<<" "<<record.first<<" ,"<<record.second<<endl; //print to check
 
     visit=new bool*[height+1];
-    for(int i=0;i<=height;i++){
+    for(int i=0;i<height;i++){
         visit[i]=new bool[width];
         for(int j=0;j<=width;j++){
             visit[i][j]=false;
         }
     }
+    for(int i=0;i<height;i++)
+        for(int j=0;j<width;j++)
+            if(wayTo[i][j]==-1)
+                visit[i][j]==true;
+
     //QueueList qq,line,backR;            //用 qq 存目前位址
     visit[R_X][R_Y] = true;
     qq.Push(Pair(R_X, R_Y));
@@ -267,22 +286,27 @@ void Robot::getDistanceR(){
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    for(int i=0;i<maxi;i++) {/////////////while有問題
+
+
+
+
+    for(int i=0;i<=maxi;i++)
+    {
         path = qq.getFront();
         if (path.first< height-1 && path.first > 0 && path.second > 0 && path.second < width-1)
         {
 
            if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&wayTo[path.first][path.second-1]<wayTo[path.first][path.second]) break;
+                wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&wayTo[path.first][path.second-1]<wayTo[path.first][path.second]) { break;}
         }
 
-       qq.Pop();
 
-            if(path.first + 1 < height-1 )
+       qq.Pop();
+       if(path.first + 1 < height-1 )
             {
-                if(visit[path.first + 1][path.second] == false)
-                {
-                    if( wayTo[path.first + 1][path.second] != -1 && (wayTo[path.first + 1][path.second]-1 == wayTo[path.first][path.second]) )
+                //if(visit[path.first + 1][path.second] == false)
+                //{
+                    if( wayTo[path.first + 1][path.second] != -1 &&(wayTo[path.first + 1][path.second]-1 == wayTo[path.first][path.second]) )
                     {
                         cout << "moveDown" << endl;
                         moveDown();
@@ -290,14 +314,15 @@ void Robot::getDistanceR(){
                         qq.Push(Pair(path.first + 1,path.second));
                         line.Push(Pair(path.first + 1,path.second));
                         backR.Push(Pair(path.first + 1,path.second));
+                        toDel.Push(Pair(path.first + 1,path.second));
                         continue;
                     }
-                }
+                //}
             }
             if(path.first - 1 > 0 )
             {
-                if( visit[path.first - 1][path.second] == false)
-                {
+               // if( visit[path.first - 1][path.second] == false)
+                //{
                     if(  wayTo[path.first - 1][path.second] != -1 && (wayTo[path.first - 1][path.second]-1 == wayTo[path.first][path.second]) )
                     {
                         cout << "moveUp" << endl;
@@ -306,14 +331,15 @@ void Robot::getDistanceR(){
                         qq.Push(Pair(path.first - 1,path.second));
                         line.Push(Pair(path.first - 1,path.second));
                         backR.Push(Pair(path.first - 1,path.second));
+                        toDel.Push(Pair(path.first - 1,path.second));
                         continue;
                     }
-                }
+                //}
             }
             if(path.second - 1 > 0 )
             {
-                if( visit[path.first][path.second - 1] == false)
-                {
+               // if( visit[path.first][path.second - 1] == false)
+                //{
                     if( wayTo[path.first][path.second - 1] != -1 && (wayTo[path.first][path.second - 1]-1 == wayTo[path.first][path.second]) )
                     {
                         cout << "moveLeft" << endl;
@@ -322,14 +348,15 @@ void Robot::getDistanceR(){
                         qq.Push(Pair(path.first,path.second - 1));
                         line.Push(Pair(path.first,path.second - 1));
                         backR.Push(Pair(path.first,path.second - 1));
+                        toDel.Push(Pair(path.first,path.second - 1));
                         continue;
                     }
-                }
+                //}
             }
             if(path.second + 1 < width-1  )
             {
-                if( visit[path.first][path.second + 1] == false)
-                {
+                //if( visit[path.first][path.second + 1] == false)
+                //{
                     if (wayTo[path.first][path.second + 1] != -1 && (wayTo[path.first][path.second + 1]-1 == wayTo[path.first][path.second]) )
                     {
                         cout << "moveRight" << endl;
@@ -338,178 +365,54 @@ void Robot::getDistanceR(){
                         qq.Push(Pair(path.first,path.second + 1));
                         line.Push(Pair(path.first,path.second + 1));
                         backR.Push(Pair(path.first,path.second + 1));
+                        toDel.Push(Pair(path.first,path.second + 1));
                         continue;
                     }
+                //}
+            }
+
+
+       }
+
+        //把list裡面最大的兩個設為-1
+
+            int x=toDel.getSize();
+            if(x>3)
+            {
+                for(int i=0;i<x-2;i++)toDel.Pop();
+                while(!toDel.IsEmpty())
+                {
+                    wayTo[toDel.getFront().first][toDel.getFront().second]=-1;
+                    uncleanFloor--;
+                    toDel.Pop();
+                }
+            }
+            else
+            {
+                toDel.Pop();
+                while(!toDel.IsEmpty())
+                {
+                    wayTo[toDel.getFront().first][toDel.getFront().second]=-1;
+                    uncleanFloor--;
+                    toDel.Pop();
                 }
             }
 
-            //*********************************************************
-            //*********************************************************
-       /* if (path.first< height-1 && path.first > 0 && path.second > 0 && path.second < width-1)
-        {
-                 if (wayTo[path.first+1][path.second]>wayTo[path.first][path.second]&&visit[path.first + 1][path.second] == false&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first+1][path.second]=true;
-                            continue;
-                        }
 
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]>wayTo[path.first][path.second]&&visit[path.first - 1][path.second] == false&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first-1][path.second]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]>wayTo[path.first][path.second]&&visit[path.first][path.second + 1] == false&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first][path.second+1]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]>wayTo[path.first][path.second]&&visit[path.first][path.second - 1] == false)
-                        {
-                            visit[path.first][path.second-1]=true;
-                            continue;
-                        }
-
-        }*/
-        else if (path.first== height)//最底
-        {
-
-                    if (
-                        wayTo[path.first-1][path.second]>wayTo[path.first][path.second]&&visit[path.first - 1][path.second] == false&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first-1][path.second]=true;
-                            continue;
-                        }
-
-                    if (
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]>wayTo[path.first][path.second]&&visit[path.first][path.second + 1] == false&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first][path.second+1]=true;
-                            continue;
-                        }
-
-                    if (
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]>wayTo[path.first][path.second]&&visit[path.first][path.second - 1] == false)
-                        {
-                            visit[path.first][path.second-1]=true;
-                            continue;
-                        }
-
-        }
-        else if ( path.first == 0 )
-        {
-                 if (wayTo[path.first+1][path.second]>wayTo[path.first][path.second]&&visit[path.first + 1][path.second] == false&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first+1][path.second]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]>wayTo[path.first][path.second]&&visit[path.first][path.second + 1] == false&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first][path.second+1]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]>wayTo[path.first][path.second]&&visit[path.first][path.second - 1] == false)
-                        {
-                            visit[path.first][path.second-1]=true;
-                            continue;
-                        }
-
-        }
-        else if (path.second == width-1)
-        {
-                 if (wayTo[path.first+1][path.second]>wayTo[path.first][path.second]&&visit[path.first + 1][path.second] == false&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first+1][path.second]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]>wayTo[path.first][path.second]&&visit[path.first - 1][path.second] == false&&
-                        wayTo[path.first][path.second-1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first-1][path.second]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second-1]>wayTo[path.first][path.second]&&visit[path.first][path.second - 1] == false)
-                        {
-                            visit[path.first][path.second-1]=true;
-                            continue;
-                        }
-
-        }
-        else if (path.second == 0 )
-        {
-                 if (wayTo[path.first+1][path.second]>wayTo[path.first][path.second]&&visit[path.first + 1][path.second] == false&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first+1][path.second]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]>wayTo[path.first][path.second]&&visit[path.first - 1][path.second] == false&&
-                        wayTo[path.first][path.second+1]<wayTo[path.first][path.second])
-                        {
-                            visit[path.first-1][path.second]=true;
-                            continue;
-                        }
-
-                    if (wayTo[path.first+1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first-1][path.second]<wayTo[path.first][path.second]&&
-                        wayTo[path.first][path.second+1]>wayTo[path.first][path.second]&&visit[path.first][path.second + 1] == false)
-                        {
-                            visit[path.first][path.second+1]=true;
-                            continue;
-                        }
-
-
-        }
-
-
-
-
-    }
+        printRobot();
+        goCharged();
 
 }
+
 void Robot::goCharged(){
-    while(!backR.IsEmpty()) {
-        backR.Pop();
-        Pair o=backR.getFront();
-        line.Push(o);
+
+    backR.Pop();
+    //backR.PopB();backR.Pop();
+    int s=backR.getSize();
+    for(int i=1;i<s;i++) {
+        backR.PopB();
+
+        line.Push(backR.getBack());
     }
     this->curX=this->r_X;
     this->curY=this->r_Y;
@@ -517,6 +420,16 @@ void Robot::goCharged(){
 
 
 }
+bool Robot::checkAllCleaned()
+{
+//cout<<"eee"<<endl;
+    for(int i=0;i<height;i++)
+        for(int j=0;j<width;j++)
+            if(wayTo[i][j]!=-1&&i!=R_X&&j!=R_Y)
+                return false;
+    return true;
+}
+
 void Robot::printRobot(){ //print information
     cout<<"robot info: "<<endl;
     cout<<"battery: "<<battery<<endl<<"lifetime: "<<lifeTime<<endl<<"(rx,ry): ("<<R_X<<","<<R_Y<<")"<<endl<<"(curX,curY): ("<<curX<<","<<curY<<")"<<endl;
@@ -591,21 +504,7 @@ int readData(){  //set height width battery rx ry Matrix
     R_X=rx;R_Y=ry;
 
 }
-int writeData(){
-    ofstream outf("final.path",ios::out);
-    if(!outf)
-    { cout<<"can't open final.path"<<endl; return 1; }
-    for(int i=0;i<height;i++)
-    {
-        for(int j=0;j<width;j++)  //雙層for迴圈print出陣列，加上空格空行排版
-        {
-            outf<<Matrix[i][j];
-        }
-        outf<<endl;
-    }
-    outf.close();
 
-}
 
 //*****************************************************************************
 int main()
@@ -620,11 +519,49 @@ int main()
     r.printRobot();
     f.setFloor();
     f.setStep();
-    r.getDistanceR();
-    r.printRobot();
-    r.goCharged();r.printRobot();
-    r.getDistanceR();
-    r.printRobot();
+  /*  r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();
+    r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();r.getDistanceR();*/
+   r.getDistanceR();//r.getDistanceR();//r.getDistanceR();
+    bool vv=false;
+    while(vv!=true){
+    //for(int i=0;i<2;i++){
+        vv=r.checkAllCleaned();
+         r.getDistanceR();
+
+    }
+
+    ofstream outf("final.path",ios::out);
+    if(!outf)
+    {
+        cout<<"can't open final.path"<<endl;
+        return 1;
+    }
+
+
+    r.line.Push(Pair(R_X,R_Y));
+    int countPath=r.line.getSize()-(oo-1);  //總步數為getsixe-呼叫distance的次數
+   // cout<<countPath+(oo-1)<<"woow"<<endl;
+    outf<<countPath+(oo-1)<<endl;
+
+     for(int i=0;i<countPath+(oo-1);i++)
+    {
+
+       // cout<<r.line.getFront().first<<" "<<r.line.getFront().second<<endl;
+        Pair mat=r.line.getFront();
+        outf<<mat.first<<" "<<mat.second<<endl;
+
+        r.line.Pop();
+    }
+
+
+
+
+
+
+    outf.close();
+
+
+
     for(int i=0;i<height;i++)
     {
         delete[]wayTo[i];
